@@ -37,12 +37,20 @@ function DiagnosticDashboard() {
     }
 
     // Load all scan requests — center name matching is unreliable due to casing/spacing
-    const requests = JSON.parse(localStorage.getItem("diagnosticRequests")) || [];
-    setScanRequests(requests);
+    const loadRequests = () => {
+      const requests = JSON.parse(localStorage.getItem("diagnosticRequests")) || [];
+      setScanRequests(requests);
+      const docs = JSON.parse(localStorage.getItem("registeredDoctors")) || [];
+      setRegisteredDoctors(docs);
+    };
 
-    // Load registered doctors
-    const docs = JSON.parse(localStorage.getItem("registeredDoctors")) || [];
-    setRegisteredDoctors(docs);
+    loadRequests();
+    window.addEventListener("dashboardUpdate", loadRequests);
+    window.addEventListener("appointmentsUpdate", loadRequests);
+    return () => {
+      window.removeEventListener("dashboardUpdate", loadRequests);
+      window.removeEventListener("appointmentsUpdate", loadRequests);
+    };
   }, []);
 
   const verifyPatient = () => {

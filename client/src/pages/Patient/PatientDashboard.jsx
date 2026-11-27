@@ -130,17 +130,30 @@ const AppointmentCalendar = ({ initialBooking }) => {
     }
   };
 
-  useEffect(() => {
+  const refreshAppointments = () => {
     const docs = getAvailableDoctors();
     setRegisteredDoctors(docs);
     const patientData = JSON.parse(localStorage.getItem("patientProfile")) || {};
     const saved = JSON.parse(localStorage.getItem("allAppointments")) || [];
-    const mine = saved.filter(a => a.patientEmail === patientData.email || a.patientName === patientData.name);
+    const mine = saved.filter(a =>
+      !patientData.email || !a.patientEmail ||
+      a.patientEmail.toLowerCase() === patientData.email.toLowerCase() ||
+      a.patientName === patientData.name
+    );
     setAllAppts(mine);
     const map = {};
     mine.forEach(a => {
-      const d = new Date(a.date);
-      const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+      let key;
+      if (typeof a.date === "string" && a.date.includes("-")) {
+        const parts = a.date.split("-").map(Number);
+        if (parts.length === 3) {
+          key = `${parts[0]}-${parts[1]}-${parts[2]}`;
+        }
+      }
+      if (!key) {
+        const d = new Date(a.date);
+        key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+      }
       if (!map[key]) map[key] = [];
       map[key].push({
         time: a.time,
@@ -152,6 +165,16 @@ const AppointmentCalendar = ({ initialBooking }) => {
       });
     });
     setAppointments(map);
+  };
+
+  useEffect(() => {
+    refreshAppointments();
+    window.addEventListener("dashboardUpdate", refreshAppointments);
+    window.addEventListener("appointmentsUpdate", refreshAppointments);
+    return () => {
+      window.removeEventListener("dashboardUpdate", refreshAppointments);
+      window.removeEventListener("appointmentsUpdate", refreshAppointments);
+    };
   }, []);
 
   // Pre-fill doctor or diagnostic test and open form if initialBooking was passed from MediBot
@@ -274,6 +297,8 @@ const AppointmentCalendar = ({ initialBooking }) => {
         status: "Pending"
       };
       localStorage.setItem("diagnosticRequests", JSON.stringify([...diagReqs, newDiagReq]));
+      window.dispatchEvent(new Event("dashboardUpdate"));
+      window.dispatchEvent(new Event("appointmentsUpdate"));
       setShowForm(false);
     } else {
       if (!form.doctorName || !form.time) {
@@ -303,6 +328,8 @@ const AppointmentCalendar = ({ initialBooking }) => {
       const existing = JSON.parse(localStorage.getItem("allAppointments")) || [];
       localStorage.setItem("allAppointments", JSON.stringify([...existing, newAppt]));
       setAllAppts(prev => [...prev, newAppt]);
+      window.dispatchEvent(new Event("dashboardUpdate"));
+      window.dispatchEvent(new Event("appointmentsUpdate"));
       setShowForm(false);
     }
   };
@@ -318,6 +345,8 @@ const AppointmentCalendar = ({ initialBooking }) => {
       const existing = JSON.parse(localStorage.getItem("allAppointments")) || [];
       localStorage.setItem("allAppointments", JSON.stringify(existing.filter(a => a.id !== chip.id)));
       setAllAppts(prev => prev.filter(a => a.id !== chip.id));
+      window.dispatchEvent(new Event("dashboardUpdate"));
+      window.dispatchEvent(new Event("appointmentsUpdate"));
     }
   };
 
